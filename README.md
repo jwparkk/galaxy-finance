@@ -1,2 +1,3 @@
 # galaxy-finance
-Smart Contracts for Galaxy finance
+Smart contracts for Galaxy finance
+
