@@ -1,6 +1,14 @@
 {
   "name": "hardhat-project",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "linter": "./node_modules/solhint/solhint.js --fix ./contracts/*.sol",
+    "formatter": "npx prettier ./contracts/* --write"
+  },
   "devDependencies": {
-    "hardhat": "^2.3.0"
+    "@openzeppelin/contracts": "^4.1.0",
+    "hardhat": "^2.3.0",
+    "prettier": "^2.3.0",
+    "prettier-plugin-solidity": "^1.0.0-beta.10"
   }
 }
