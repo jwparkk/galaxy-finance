@@ -75,7 +75,7 @@ contract GalaxyController {
     /// @notice init pools
     /// @dev
     /// @param
-    function initPool(uint8 poolType, uint256 price){
+    function initPool(uint8 poolType, uint256 price) public {
         require(msg.sender === dev, "only dev call");
         return;
     }
