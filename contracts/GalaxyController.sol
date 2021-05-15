@@ -68,7 +68,7 @@ contract GalaxyController {
     function getVotingCount(
         uint256 poolType,
         boolean position
-    ) public view return(uint256) {
+    ) public view returns (uint256) {
         return;
     }
 
