@@ -1,7 +1,7 @@
 /// SPDX-License-Identifier: <SPDX-License>
 pragma solidity 0.8.4;
-
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
     @title GalaxyController
@@ -9,128 +9,151 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
     In each prediction pool, there are 'articles' on both long/short position.
     A user can support any article by voting 'GALA' token.
  */
-contract GalaxyController {
-    struct User {
-        uint256 amount; // How many LP tokens the user has provided.
-        bool position; // true: up vote false: down vote
-    }
-
+contract GalaxyController is Ownalbe {
     struct Article {
         address writer;
         uint256 votes;
+        uint256 targetPrice;
     }
 
     struct Pool {
         string assetType; // planning to support $BTC price for now
-        uint256 price; // price of asset when pool initialize, accept only decimals
-        uint256 totalVotes;
-        uint256 endVotingTime; // should limit the voting time, TODO::: policy..
-        bool winPosition;
-        uint256 allocRate;
+        uint256 initPrice; // price of asset when pool initialize, accept only decimals
+        uint256 finalizePrice; //price after settlement;
+        boolean isVotable; // votable or not
     }
 
     IERC20 galaxy;
-    /// Dev address
-    address dev;
+    /// admin address
+    address amdin;
     /// Staking Address
-    address safeBox;
-    /// System holds 3(types) * 2(positions) pool info.
-    /// Pool type:
-    ///     1 => one day after prediction
-    ///     3 => three days after prediction
-    ///     7 => 7 days after prediction
-    /// Positions type:
-    ///     0 => long position
-    ///     1 => short position
-    Pool[][] system;
-    /// userInfo holds user voting information of specific pool
-    /// calculate pool index by adding {poolIdx} + {positionIdx}
-    /// example)
-    ///     userInfo[1][msg.sender] => one day prediction pool, long position
-    ///     userInfo[2][msg.sender] => one day prediction pool, short position
-    ///     userInfo[3][msg.sender] => three day prediction pool, long position
-    mapping(uint8 => mapping(address => User)) public userInfo;
-    /// articleInfo holds user voting information of specific pool
-    /// calculate pool index by adding {poolIdx} + {positionIdx}
-    /// example)
-    ///     articleInfo[1][msg.sender] => one day prediction pool, long position articles
-    ///     articleInfo[2][msg.sender] => one day prediction pool, short position articles
-    ///     alticleInfo[3][msg.sender] => three day prediction pool, long position articles
-    mapping(uint8 => mapping(address => Article)) public articleInfo;
+    address sharePool;
 
     constructor(
         IERC20 _galaxy,
-        address _dev,
-        address _safeBox
+        address _admin,
+        address _sharePool
     ) {
         galaxy = _galaxy;
-        safeBox = _safeBox;
-        dev = _dev;
+        sharePool = _sharePool;
+        admin = _admin;
+    }
+
+    //system
+    Pool[] system;
+    mapping(uint256 => mapping(uint256 => Article)) public articles; // poolId => articleId => Article
+    uint256[] articlesInfo; // array of articles
+    mapping(uint256 => mapping(address => uint256)) public userPosition; // articleId => user Address => # of votes
+    mapping(address => uint256) public rewardDebt; //unlocked rewardDebt
+
+    /** ------------ Logging -------------- */
+    event InitPool(uint256 poolIndex_, string assetType_, uint256 price_);
+    event SettlePool(uint256 longIdx_, uint256 shortIdx_, uint256 price_);
+    event Votes(uint256 poolIdx_, uint256 articleIdx_, uint256 amount_);
+    event TakeProfit();
+    event RegisterArticle(
+        uint256 poolIdx,
+        uint256 articleIdx,
+        uint256 targetPrice_
+    );
+
+    /** -------- System Function: onlyOwner ---------- */
+
+    /// @notice init pools
+    function initPool(
+        uint256 poolIndex_,
+        string assetType_,
+        uint256 price_
+    ) public onlyOwner {
+        system[poolIndex_].assetType = assetType_;
+        system[poolIndex_].price = price_;
+        system[poolIndex_].votable = true;
+
+        emit InitPool(poolIndex_, assetType_, price_);
+    }
+
+    /// @notice settle the pool
+    function settle(
+        uint256 longIdx_,
+        uint256 shortIdx_,
+        uint256 finalizePrice_
+    ) public onlyOwner {
+        _settle(longPoolIdx_, finalizePrice_);
+        _settle(shortPoolIdx_, finalizePrice_);
+
+        emit SettlePool(lon);
+    }
+
+    //@TODO
+    function _settle(uint256 poolIdx, uint256 finalizePrice_) private {
+        return;
     }
 
     /** -------- User Function ---------- */
 
-    /// @notice return count of votes of pool
-    /// @dev todoo
-    /// @param poolType type of pool
-    /// @param position true: long, false: short
-    function getVotingCount(uint256 poolType, bool position)
-        public
+    /// @notice voting the pool
+    function vote(
+        uint256 poolIdx_,
+        uint256 articleIdx_,
+        uint256 amount_
+    ) public {
+        articles[poolIdx_][articleIdx_].votes =
+            articles[poolIdx_][articleIdx_].votes +
+            amount_;
+
+        userPosition[msg.sender] = userPosition[msg.sender] + amount_;
+
+        galaxy.approve(address(this), type(uint256).max);
+        galaxy.transferFrom(msg.sender, address(this), _amount);
+    }
+
+    function getVoteCountOf(uint256 poolIdx_, uint256 artlceIdx_)
+        external
         view
         returns (uint256)
     {
-        return 1;
+        return articles[poolIdx_][articleIdx_].votes;
     }
 
-    /// @notice user enter specific pool
-    function votes(
-        uint256 poolType,
-        bool position,
-        uint256 amount
-    ) public {}
-
-    /// @notice user withdraw its profit of pool
-    /// @param poolType type of pool
-    /// @param position true: long, false: short
-    function withdraws(uint8 poolType, bool position) public {}
-
-    /** -------- System Function ---------- */
-
-    /// @notice init pools
-    /// @dev
-    /// @param
-    function initPool(uint8 poolType, uint256 price) public {
-        require(msg.sender == dev, "only dev call");
-        return;
-    }
-
-    /// @notice validate Prediction of article
-    /// @dev verify if TP of article hits or not
-    /// @param poolType type of pool
-    function validatePrediction(uint256 poolType) public returns (bool) {
-        return true;
-    }
-
-    /// @notice validate prediction of pools and calculate allocation rate
-    function updateAllPools() internal {
-        return;
-    }
-
-    /// @notice calculate the something, updates winning position and allocation rate
-    /// TODO:::: we need to set equation with policy !!
-    function calculateAllocation() internal {}
-
-    /** -------- Private Function ---------- */
-    function _getPoolIdx(uint8 poolType, bool position)
-        private
-        returns (uint8)
+    function getTotalVoteCountOf(uint256 poolIdx)
+        external
+        view
+        returns (uint256)
     {
-        return position ? poolType + 0 : poolType + 1;
+        uint256 ret = 0;
+        uint256 length = articlesInfo.length;
+        for (uint256 idx = 0; idx < length; ++idx) {
+            ret = ret + articles[poolIdx][articleInfo[idx]];
+        }
     }
-    /**
-    
 
-    /// @notice 
-    function 
-     */
+    function takeRewardDebt() public {
+        debt = rewardDebt[msg.sender];
+        galaxy.transferFrom(address(this), msg.sender, debt);
+        emit TakeProfit();
+    }
+
+    /** -------- Writer Function ---------- */
+    function registerArticle(
+        uint256 poolIdx_,
+        uint256 articleIdx,
+        uint256 targetPrice_
+    ) public {
+        if (poolIdx / 2 == 0) {
+            require(
+                system[poolIdx].price < targetPrice_,
+                "Long prediction should higher than pool base price"
+            );
+        } else {
+            require(
+                system[poolIdx].price > targetPrice_,
+                "Long prediction should lower than pool base price"
+            );
+        }
+
+        articles[poolIdx_][articleIdx].writer = msg.sender;
+        articles[poolIdx_][articleIdx].targetPrice = targetPrice_;
+
+        emit RegisterArticle(poolIdx, articleIdx, targetPrice_);
+    }
 }
