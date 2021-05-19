@@ -3,11 +3,12 @@ pragma solidity 0.8.4;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /// @title GalaxyShare
 /// @notice User enter or leave Galaxy Pool through gToken or share.
 contract GalaxyShare is ERC20("GalaxyShare", "xGALA") {
-    //using SafeMath for uint256;
+    using SafeMath for uint256;
     IERC20 public galaxy;
 
     // Define the Galaxy token contract
@@ -24,7 +25,7 @@ contract GalaxyShare is ERC20("GalaxyShare", "xGALA") {
         uint256 totalShares = totalSupply();
 
         // If no xGALA exists, mint it 1:1 to the amount put in
-        if (totalShares == 0 || totalSushi == 0) {
+        if (totalShares == 0 || totalGalaxy == 0) {
             _mint(msg.sender, _amount);
         } else {
             // Calculate and mint the amount of xGALA the GALA is worth.
@@ -32,20 +33,20 @@ contract GalaxyShare is ERC20("GalaxyShare", "xGALA") {
             uint256 what = _amount.mul(totalShares).div(totalGalaxy);
             _mint(msg.sender, what);
         }
-        // Lock the Sushi in the contract
-        sushi.transferFrom(msg.sender, address(this), _amount);
-        return;
+        // Lock the galaxy in the contract
+        galaxy.transferFrom(msg.sender, address(this), _amount);
     }
 
     /// @notice Unlock the GALA token and burns xGALA
     /// @param _share number of `xGALA` token
     function leave(uint256 _share) public {
         uint256 totalShares = totalSupply();
-        // Calculates the amount of Sushi the xSushi is worth
-        uint256 what =
-            _share.mul(galaxy.balanceOf(address(this))).div(totalShares);
+        uint256 totalGalaxy = galaxy.balanceOf(address(this));
+        // Calculates the amount of Galaxy the xGALA is worth
+        uint256 what = _share.mul(totalGalaxy).div(totalShares);
+
         _burn(msg.sender, _share);
-        sushi.transfer(msg.sender, what);
+        galaxy.transfer(msg.sender, what);
         return;
     }
 }
